@@ -1,7 +1,7 @@
 # webcachesim:
 ## A simulator for CDN caching and web caching policies.
 
-Simulate a variety of existing caching policies by replaying request traces, and use this framework as a basis to experiment with new ones.
+SImulate a variety of existing caching policies by replaying request traces, and use this framework as a basis to experiment with new ones.
 
 The webcachesim simulator was built for the [AdaptSize project](https://github.com/dasebe/AdaptSize), see [References](#references) for more information.
 
