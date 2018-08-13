@@ -122,6 +122,16 @@ public:
 
 static Factory<ExpLRUCache> factoryExpLRU("ExpLRU");
 
+class AdaptSizeCache : public LRUCache
+{
+public: 
+	AdaptSizeCache();
+	virtual ~AdaptSizeCache()
+	{
+	}
+};
+
+static Factory<AdaptSizeCache> factoryAdaptSize("AdaptSize");
 
 /*
   S4LRU

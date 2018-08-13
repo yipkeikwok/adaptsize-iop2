@@ -188,7 +188,10 @@ void ExpLRUCache::admit(SimpleRequest* req)
 }
 
 
-
+AdaptSizeCache::AdaptSizeCache()
+	: LRUCache()
+{
+}
 
 
 /*
