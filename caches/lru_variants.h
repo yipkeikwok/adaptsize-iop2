@@ -129,6 +129,9 @@ public:
 	virtual ~AdaptSizeCache()
 	{
 	}
+
+	virtual bool lookup(SimpleRequest*);
+	virtual void admit(SimpleRequest*);
 };
 
 static Factory<AdaptSizeCache> factoryAdaptSize("AdaptSize");

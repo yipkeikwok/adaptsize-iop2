@@ -193,6 +193,38 @@ AdaptSizeCache::AdaptSizeCache()
 {
 }
 
+bool AdaptSizeCache::lookup(SimpleRequest* req)
+{
+    CacheObject obj(req);
+    auto it = _cacheMap.find(obj);
+    if (it != _cacheMap.end()) {
+        // log hit
+        LOG("h", 0, obj.id, obj.size);
+        hit(it, obj.size);
+        return true;
+    }
+    return false;
+}
+
+void AdaptSizeCache::admit(SimpleRequest* req)
+{
+    const uint64_t size = req->getSize();
+    // object feasible to store?
+    if (size > _cacheSize) {
+        LOG("L", _cacheSize, req->getId(), size);
+        return;
+    }
+    // check eviction needed
+    while (_currentSize + size > _cacheSize) {
+        evict();
+    }
+    // admit new object
+    CacheObject obj(req);
+    _cacheList.push_front(obj);
+    _cacheMap[obj] = _cacheList.begin();
+    _currentSize += size;
+    LOG("a", _currentSize, obj.id, obj.size);
+}
 
 /*
   S4LRU
