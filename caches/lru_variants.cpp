@@ -9,6 +9,16 @@
 #define SHFT2(a,b,c) (a)=(b);(b)=(c);
 #define SHFT3(a,b,c,d) (a)=(b);(b)=(c);(c)=(d);
 
+// math model below can be directly copiedx
+// static inline double oP1(double T, double l, double p) {
+static inline double oP1(double T, double l, double p) {
+  return (l * p * T * (840.0 + 60.0 * l * T + 20.0 * l*l * T*T + l*l*l * T*T*T));
+}
+
+static inline double oP2(double T, double l, double p) {
+  return (840.0 + 120.0 * l * (-3.0 + 7.0 * p) * T + 60.0 * l*l * (1.0 + p) * T*T + 4.0 * l*l*l * (-1.0 + 5.0 * p) * T*T*T + l*l*l*l * p * T*T*T*T);
+}
+
 /*
   LRU: Least Recently Used eviction
 */
@@ -280,7 +290,7 @@ void AdaptSizeCache::reconfigure() {
 
 	// copy stats into vector for better alignment 
 	// and delete small values 
-	alignedReqRate.clear(); 
+	alignedReqCount.clear(); 
 	alignedObjSize.clear();
 	double totalReqCount = 0.0; 
 	uint64_t totalObjSize = 0.0; 
@@ -292,7 +302,7 @@ void AdaptSizeCache::reconfigure() {
 			statSize -= it->second.size; 
 			it = ewmaInfo.erase(it); 
 		} else {
-			alignedReqRate.push_back(it->second.requestCount); 
+			alignedReqCount.push_back(it->second.requestCount); 
 			totalReqCount += it->second.requestCount; 
 			alignedObjSize.push_back(it->second.size); 
 			totalObjSize += it->second.size; 
@@ -371,9 +381,63 @@ void AdaptSizeCache::reconfigure() {
 }
 
 double AdaptSizeCache::modelHitRate(double log2c) {
-	// this code is adapted from the AdaptSize git repo
-	// github.com/dasebe/AdaptSize
-	return 0.;
+  // this code is adapted from the AdaptSize git repo
+  // github.com/dasebe/AdaptSize
+  double old_T, the_T, the_C;
+  double sum_val = 0.;
+  double thparam = log2c;
+
+  for(size_t i=0; i<alignedReqCount.size(); i++) {
+    sum_val += alignedReqCount[i] * (exp(-alignedObjSize[i]/ pow(2,thparam))) * alignedObjSize[i];
+  }
+  if(sum_val <= 0) {
+    return(0);
+  }
+  the_T = getSize() / sum_val;
+  // prepare admission probabilities
+  alignedAdmProb.clear();
+  for(size_t i=0; i<alignedReqCount.size(); i++) {
+      alignedAdmProb.push_back(exp(-alignedObjSize[i]/ pow(2.0,thparam)));
+  }
+  // 20 iterations to calculate TTL
+  
+  for(int j = 0; j<10; j++) {
+    the_C = 0;
+    if(the_T > 1e70) {
+      break;
+    }
+    for(size_t i=0; i<alignedReqCount.size(); i++) {
+      const double reqTProd = alignedReqCount[i]*the_T;
+      if(reqTProd>150) {
+          // cache hit probability = 1, but numerically inaccurate to calculate
+          the_C += alignedObjSize[i];
+      } else {
+          const double expTerm = exp(reqTProd) - 1;
+          const double expAdmProd = alignedAdmProb[i] * expTerm;
+          const double tmp = expAdmProd / (1 + expAdmProd);
+          the_C += alignedObjSize[i] * tmp;
+      }
+    }
+    old_T = the_T;
+    the_T = getSize() * old_T/the_C;
+  }
+
+  // calculate object hit ratio
+  double weighted_hitratio_sum = 0;
+  for(size_t i=0; i<alignedReqCount.size(); i++) {
+      const double tmp01= oP1(the_T,alignedReqCount[i],alignedAdmProb[i]);
+      const double tmp02= oP2(the_T,alignedReqCount[i],alignedAdmProb[i]);
+      double tmp;
+      if(tmp01!=0 && tmp02==0)
+          tmp = 0.0;
+      else tmp= tmp01/tmp02;
+      if(tmp<0.0)
+          tmp = 0.0;
+      else if (tmp>1.0)
+          tmp = 1.0;
+      weighted_hitratio_sum += alignedReqCount[i] * tmp;
+  }
+  return (weighted_hitratio_sum);
 }
 
 /*
@@ -441,3 +505,5 @@ void S4LRUCache::evict()
 {
     segments[0].evict();
 }
+
+

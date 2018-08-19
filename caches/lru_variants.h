@@ -167,7 +167,7 @@ private:
 	double modelHitRate(double c);
 
 	// align data for vectorization
-	std::vector<double> alignedReqRate;
+	std::vector<double> alignedReqCount;
 	std::vector<double> alignedObjSize;
 	std::vector<double> alignedAdmProb;
 };
