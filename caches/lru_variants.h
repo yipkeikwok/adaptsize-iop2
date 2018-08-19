@@ -3,8 +3,12 @@
 
 #include <unordered_map>
 #include <list>
+#include <random> // AdaptSize random number generation 
+#include <ctime> // AdaptSize random number generation; Seed the generator 
 #include "cache.h"
 #include "cache_object.h"
+#include "adaptsize_const.h" /** AdaptSize implementation */
+
 
 typedef std::list<CacheObject>::iterator ListIteratorType;
 typedef std::unordered_map<CacheObject, ListIteratorType> lruCacheMapType;
@@ -132,6 +136,40 @@ public:
 
 	virtual bool lookup(SimpleRequest*);
 	virtual void admit(SimpleRequest*);
+
+private: 
+	uint64_t nextReconfiguration;
+	double c;
+	// cacheSize abolished. To be replaced by what webcachesim provides 
+	// (i.e., the command line input) 
+	// double cacheSize;
+	uint64_t statSize;
+	double v; // declared as global variable in adaptsize_stub.cpp 
+	// for random number generation 
+	std::mt19937_64 *randGenerator; 
+	// for random number generation 
+	// std::uniform_int_distribution<int> uniform_int_distro(0, RANGE);
+	std::uniform_int_distribution<unsigned long long> 
+		*uniform_int_distribution0; 
+
+	struct ObjInfo {
+		double requestCount; // requestRate in adaptsize_stub.h
+		int64_t size;
+
+		ObjInfo() : requestCount(0.), size(0) { }
+	};
+	std::unordered_map<CacheObject, ObjInfo> lruCacheMapType;
+
+	std::unordered_map<CacheObject, ObjInfo> ewmaInfo;
+	std::unordered_map<CacheObject, ObjInfo> intervalInfo;
+
+	void reconfigure();
+	double modelHitRate(double c);
+
+	// align data for vectorization
+	std::vector<double> alignedReqRate;
+	std::vector<double> alignedObjSize;
+	std::vector<double> alignedAdmProb;
 };
 
 static Factory<AdaptSizeCache> factoryAdaptSize("AdaptSize");

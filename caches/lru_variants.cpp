@@ -190,11 +190,21 @@ void ExpLRUCache::admit(SimpleRequest* req)
 
 AdaptSizeCache::AdaptSizeCache()
 	: LRUCache()
+	, nextReconfiguration(RECONFIGURATION_INTERVAL)
+	, c(1 << 15)
+	, statSize(0)
 {
+	randGenerator = new std::mt19937_64(SEED); 
+	uniform_int_distribution0 = 
+		new std::uniform_int_distribution<unsigned long long>(0, 
+		4294967296); 
+	v=1.0-r;
 }
 
 bool AdaptSizeCache::lookup(SimpleRequest* req)
 {
+	reconfigure(); 
+
     CacheObject obj(req);
     auto it = _cacheMap.find(obj);
     if (it != _cacheMap.end()) {
@@ -208,6 +218,11 @@ bool AdaptSizeCache::lookup(SimpleRequest* req)
 
 void AdaptSizeCache::admit(SimpleRequest* req)
 {
+	//double roll = (uniform_int_distro(randGenerator) % RANGE) * 1. / RANGE;
+
+	// Yipkei's note
+	// refer to AdaptSize::admit() in adaptsize_stub.cpp 
+	// understand the code below 
     const uint64_t size = req->getSize();
     // object feasible to store?
     if (size > _cacheSize) {
@@ -224,6 +239,64 @@ void AdaptSizeCache::admit(SimpleRequest* req)
     _cacheMap[obj] = _cacheList.begin();
     _currentSize += size;
     LOG("a", _currentSize, obj.id, obj.size);
+}
+
+void AdaptSizeCache::reconfigure() {
+	--nextReconfiguration;
+	if (nextReconfiguration > 0) {
+		return;
+	} else if(statSize <= getSize()*3) {
+		// not enough data has been gathered
+		nextReconfiguration+=10000;
+	} else {
+		nextReconfiguration = RECONFIGURATION_INTERVAL;
+	}
+
+	// smooth stats for objects 
+	for(auto it = ewmaInfo.begin(); 
+		it != ewmaInfo.end(); 
+		it++) {
+		it->second.requestCount *= EWMA_DECAY; 
+	} 
+
+	// persist intervalinfo in ewmaInfo 
+	for (auto it = intervalInfo.begin(); 
+		it != intervalInfo.end();
+		it++) {
+		auto ewmaIt = ewmaInfo.find(it->first); 
+		if(ewmaIt != ewmaInfo.end()) {
+			ewmaIt->second.requestCount += (1. - EWMA_DECAY) 
+				* it->second.requestCount;
+			ewmaIt->second.size = it->second.size; 
+		} else {
+			ewmaInfo.insert(*it);
+		}
+	}
+	intervalInfo.clear(); 
+
+	// copy stats into vector for better alignment 
+	// and delete small values 
+	alignedReqRate.clear(); 
+	alignedObjSize.clear();
+	double totalReqCount = 0.0; 
+	uint64_t totalObjSize = 0.0; 
+	for(auto it = ewmaInfo.begin(); 
+		it != ewmaInfo.end(); 
+		/*none*/) {
+		if(it->second.requestCount < 0.1) {
+			// delete from stats 
+			statSize -= it->second.size; 
+			it = ewmaInfo.erase(it); 
+		} else {
+			alignedReqRate.push_back(it->second.requestCount); 
+			totalReqCount += it->second.requestCount; 
+			alignedObjSize.push_back(it->second.size); 
+			totalObjSize += it->second.size; 
+			++it;
+		}
+	}
+
+	return;
 }
 
 /*
