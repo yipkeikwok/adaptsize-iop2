@@ -5,6 +5,10 @@
 #include "lru_variants.h"
 #include "../random_helper.h"
 
+// golden section search helpers
+#define SHFT2(a,b,c) (a)=(b);(b)=(c);
+#define SHFT3(a,b,c,d) (a)=(b);(b)=(c);(c)=(d);
+
 /*
   LRU: Least Recently Used eviction
 */
@@ -296,7 +300,80 @@ void AdaptSizeCache::reconfigure() {
 		}
 	}
 
+	std::cerr << "Reconfiguring over " << ewmaInfo.size() 
+	<< " objects - log2 total size " << std::log2(totalObjSize) 
+	<< " log2 statsize " << std::log2(statSize) << std::endl; 
+
+	// assert(totalObjSize==statSize); 
+	//
+	// if(totalObjSize > cacheSize*2) {
+	//
+	// model hit rate and choose best admission parameter, c
+	// search for best parameter on log2 scale of c, between min=x0 and max=x3
+	// x1 and x2 bracket our current estimate of the optimal parameter range
+	// |x0 -- x1 -- x2 -- x3|
+	double x0 = 0; 
+	double x1 = std::log2(getSize());
+	double x2 = x1;
+	double x3 = x1; 
+
+	double bestHitRate = 0.0; 
+	// course_granular grid search 
+	for(int i=2; i<x3; i+=4) {
+		const double next_log2c = i; // 1.0 * (i+1) / NUM_PARAMETER_POINTS;
+		const double hitRate = modelHitRate(next_log2c); 
+		// printf("Model param (%f) : ohr (%f)\n",
+		// 	next_log2c,hitRate/totalReqRate);
+
+		if(hitRate > bestHitRate) {
+			bestHitRate = hitRate;
+			x1 = next_log2c;
+		}
+	}
+
+	double h1 = bestHitRate; 
+	double h2;
+	//prepare golden section search into larger segment 
+	if(x3-x1 > x1-x0) {
+		// above x1 is larger segment 
+		x2 = x1+v*(x3-x1); 
+		h2 = modelHitRate(x2);
+	} else {
+		// below x1 is larger segment 
+		x2 = x1; 
+		h2 = h1; 
+		x1 = x0+v*(x1-x0); 
+		h1 = modelHitRate(x1); 
+	}
+	assert(x1<x2); 
+
+	int curIterations=0; 
+	// use termination condition from [Numerical recipes in C]
+	while(curIterations++<maxIterations 
+		&& fabs(x3-x0)>tol*(fabs(x1)+fabs(x2))) {
+		//NAN check 
+		if((h1!=h1) || (h2!=h2)) 
+			break; 
+		// printf("Model param low (%f) : ohr low (%f) | param high (%f) 
+		// 	: ohr high (    %f)\n",x1,h1/totalReqRate,x2,
+		// 	h2/totalReqRate);
+
+		if(h2>h1) {
+			SHFT3(x0,x1,x2,r*x1+v*x3); 
+			SHFT2(h1,h2,modelHitRate(x2));
+		} else {
+			SHFT3(x3,x2,x1,r*x2+v*x0);
+			SHFT2(h2,h1,modelHitRate(x1));
+		}
+	}
+
 	return;
+}
+
+double AdaptSizeCache::modelHitRate(double log2c) {
+	// this code is adapted from the AdaptSize git repo
+	// github.com/dasebe/AdaptSize
+	return 0.;
 }
 
 /*
