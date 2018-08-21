@@ -377,7 +377,22 @@ void AdaptSizeCache::reconfigure() {
 		}
 	}
 
-	return;
+	// check result
+	if( (h1!=h1) || (h2!=h2) ) {
+		// numerical failure
+		std::cerr << "ERROR: numerical bug " << h1 << " " << h2 
+			<< std::endl;
+		// nop
+	} else if (h1 > h2) {
+		// x1 should is final parameter
+		c = pow(2, x1);
+		std::cerr << "Choosing c of " << c << " (log2: " << x1 << ")" 
+			<< std::endl;
+	} else {
+		c = pow(2, x2);
+		std::cerr << "Choosing c of " << c << " (log2: " << x2 << ")" 
+		<< std::endl;
+	}
 }
 
 double AdaptSizeCache::modelHitRate(double log2c) {
