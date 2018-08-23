@@ -20,6 +20,7 @@ class LRUCache : public Cache
 {
 protected:
     // list for recency order
+    // std::list is a container, usually, implemented as a doubly-linked list 
     std::list<CacheObject> _cacheList;
     // map to find objects in list
     lruCacheMapType _cacheMap;
@@ -153,10 +154,10 @@ private:
 		*uniform_int_distribution0; 
 
 	struct ObjInfo {
-		double requestCount; // requestRate in adaptsize_stub.h
-		int64_t size;
+		uint64_t requestCount; // requestRate in adaptsize_stub.h
+		uint64_t objSize;
 
-		ObjInfo() : requestCount(0.), size(0) { }
+		ObjInfo() : requestCount(0), objSize(0) { }
 	};
 	std::unordered_map<CacheObject, ObjInfo> lruCacheMapType;
 

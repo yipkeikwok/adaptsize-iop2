@@ -24,7 +24,9 @@ static inline double oP2(double T, double l, double p) {
 */
 bool LRUCache::lookup(SimpleRequest* req)
 {
+	// CacheObject: defined in cache_object.h 
     CacheObject obj(req);
+	// _cacheMap defined in class LRUCache in lru_variants.h 
     auto it = _cacheMap.find(obj);
     if (it != _cacheMap.end()) {
         // log hit
@@ -90,8 +92,15 @@ void LRUCache::evict()
     evict_return();
 }
 
+// const_iterator: a forward iterator to const value_type, where 
+// value_type is pair<const key_type, mapped_type>
 void LRUCache::hit(lruCacheMapType::const_iterator it, uint64_t size)
 {
+	// transfers it->second (i.e., ObjInfo) from _cacheList into 
+	// 	*this. The transferred it->second is to be inserted before 
+	// 	the element pointed to by _cacheList.begin()
+	//
+	// _cacheList is defined in class LRUCache in lru_variants.h 
     _cacheList.splice(_cacheList.begin(), _cacheList, it->second);
 }
 
@@ -281,7 +290,7 @@ void AdaptSizeCache::reconfigure() {
 		if(ewmaIt != ewmaInfo.end()) {
 			ewmaIt->second.requestCount += (1. - EWMA_DECAY) 
 				* it->second.requestCount;
-			ewmaIt->second.size = it->second.size; 
+			ewmaIt->second.objSize = it->second.objSize; 
 		} else {
 			ewmaInfo.insert(*it);
 		}
@@ -299,13 +308,13 @@ void AdaptSizeCache::reconfigure() {
 		/*none*/) {
 		if(it->second.requestCount < 0.1) {
 			// delete from stats 
-			statSize -= it->second.size; 
+			statSize -= it->second.objSize; 
 			it = ewmaInfo.erase(it); 
 		} else {
 			alignedReqCount.push_back(it->second.requestCount); 
 			totalReqCount += it->second.requestCount; 
-			alignedObjSize.push_back(it->second.size); 
-			totalObjSize += it->second.size; 
+			alignedObjSize.push_back(it->second.objSize); 
+			totalObjSize += it->second.objSize; 
 			++it;
 		}
 	}
