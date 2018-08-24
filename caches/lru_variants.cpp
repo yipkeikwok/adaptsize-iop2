@@ -228,15 +228,37 @@ bool AdaptSizeCache::lookup(SimpleRequest* req)
 {
 	reconfigure(); 
 
-    CacheObject obj(req);
-    auto it = _cacheMap.find(obj);
-    if (it != _cacheMap.end()) {
-        // log hit
-        LOG("h", 0, obj.id, obj.size);
-        hit(it, obj.size);
-        return true;
-    }
-    return false;
+	CacheObject tmpCacheObject0(req); 
+	if(intervalInfo.count(tmpCacheObject0)==0 
+		&& ewmaInfo.count(tmpCacheObject0)==0) { 
+		// new object 
+		statSize += tmpCacheObject0.size;
+	}
+	// the else block is not necessary as webcachesim treats an object 
+	// with size changed as a new object 
+	/** 
+	} else {
+		// keep track of changing object sizes
+		if(intervalInfo.count(id)>0 
+			&& intervalInfo[id].size != req.size()) {
+			// outdated size info in intervalInfo
+			statSize -= intervalInfo[id].size;
+			statSize += req.size();
+		}
+		if(ewmaInfo.count(id)>0 && ewmaInfo[id].size != req.size()) {
+			// outdated size info in ewma
+			statSize -= ewmaInfo[id].size;
+			statSize += req.size();
+		}
+	}
+	*/
+
+	// record stats
+	auto& info = intervalInfo[tmpCacheObject0]; 
+	info.requestCount += 1;
+	info.objSize = tmpCacheObject0.size;
+
+	return LRUCache::lookup(req);
 }
 
 void AdaptSizeCache::admit(SimpleRequest* req)
