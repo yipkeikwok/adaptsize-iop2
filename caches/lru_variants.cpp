@@ -1,4 +1,8 @@
 #include <unordered_map>
+#include <limits>
+#include <random>
+#include <cmath>
+#include <cassert>
 #include <random>
 #include <cmath>
 #include <cassert>
@@ -217,10 +221,12 @@ AdaptSizeCache::AdaptSizeCache()
 	, c(1 << 15)
 	, statSize(0)
 {
+	/** 
 	randGenerator = new std::mt19937_64(SEED); 
 	uniform_int_distribution0 = 
 		new std::uniform_int_distribution<unsigned long long>(0, 
-		4294967296); 
+		std::numeric_limits<unsigned long long>::max()); 
+	*/ 
 	v=1.0-r;
 }
 
@@ -263,27 +269,14 @@ bool AdaptSizeCache::lookup(SimpleRequest* req)
 
 void AdaptSizeCache::admit(SimpleRequest* req)
 {
-	//double roll = (uniform_int_distro(randGenerator) % RANGE) * 1. / RANGE;
+	const uint64_t RANGE = 1ull << 32; 
+	double roll = (uniform_int_distribution0(randGenerator0) % RANGE) * 1. 
+		/ RANGE;
+	double admitProb = std::exp(req->getSize()/c); 
 
-	// Yipkei's note
-	// refer to AdaptSize::admit() in adaptsize_stub.cpp 
-	// understand the code below 
-    const uint64_t size = req->getSize();
-    // object feasible to store?
-    if (size > _cacheSize) {
-        LOG("L", _cacheSize, req->getId(), size);
-        return;
-    }
-    // check eviction needed
-    while (_currentSize + size > _cacheSize) {
-        evict();
-    }
-    // admit new object
-    CacheObject obj(req);
-    _cacheList.push_front(obj);
-    _cacheMap[obj] = _cacheList.begin();
-    _currentSize += size;
-    LOG("a", _currentSize, obj.id, obj.size);
+	if(roll < admitProb) 
+		LRUCache::admit(req); 
+
 }
 
 void AdaptSizeCache::reconfigure() {

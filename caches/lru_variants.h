@@ -147,11 +147,11 @@ private:
 	uint64_t statSize;
 	double v; // declared as global variable in adaptsize_stub.cpp 
 	// for random number generation 
-	std::mt19937_64 *randGenerator; 
+	std::mt19937_64 randGenerator0; 
 	// for random number generation 
 	// std::uniform_int_distribution<int> uniform_int_distro(0, RANGE);
 	std::uniform_int_distribution<unsigned long long> 
-		*uniform_int_distribution0; 
+		uniform_int_distribution0; 
 
 	struct ObjInfo {
 		uint64_t requestCount; // requestRate in adaptsize_stub.h
