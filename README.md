@@ -1,5 +1,5 @@
 # webcachesim:
-## A simulator for CDN caching and web caching policies.
+## A Simulator for CDN caching and web caching policies.
 
 SIMulate a variety of existing caching policies by replaying request traces, and use this framework as a basis to experiment with new ones.
 
