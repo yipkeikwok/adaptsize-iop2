@@ -286,6 +286,7 @@ void AdaptSizeCache::reconfigure() {
 	} else if(statSize <= getSize()*3) {
 		// not enough data has been gathered
 		nextReconfiguration+=10000;
+		return; 
 	} else {
 		nextReconfiguration = RECONFIGURATION_INTERVAL;
 	}
