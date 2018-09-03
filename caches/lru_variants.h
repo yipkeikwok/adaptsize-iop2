@@ -3,8 +3,12 @@
 
 #include <unordered_map>
 #include <list>
+#include <random> // AdaptSize random number generation 
+#include <ctime> // AdaptSize random number generation; Seed the generator 
 #include "cache.h"
 #include "cache_object.h"
+#include "adaptsize_const.h" /** AdaptSize implementation */
+
 
 typedef std::list<CacheObject>::iterator ListIteratorType;
 typedef std::unordered_map<CacheObject, ListIteratorType> lruCacheMapType;
@@ -16,6 +20,7 @@ class LRUCache : public Cache
 {
 protected:
     // list for recency order
+    // std::list is a container, usually, implemented as a doubly-linked list 
     std::list<CacheObject> _cacheList;
     // map to find objects in list
     lruCacheMapType _cacheMap;
@@ -35,6 +40,7 @@ public:
     virtual void admit(SimpleRequest* req);
     virtual void evict(SimpleRequest* req);
     virtual void evict();
+    virtual SimpleRequest* evict_return();
 };
 
 static Factory<LRUCache> factoryLRU("LRU");
@@ -120,6 +126,91 @@ public:
 };
 
 static Factory<ExpLRUCache> factoryExpLRU("ExpLRU");
+
+class AdaptSizeCache : public LRUCache
+{
+public: 
+	AdaptSizeCache();
+	virtual ~AdaptSizeCache()
+	{
+	}
+
+	virtual bool lookup(SimpleRequest*);
+	virtual void admit(SimpleRequest*);
+
+private: 
+	uint64_t nextReconfiguration;
+	double c;
+	// cacheSize abolished. To be replaced by what webcachesim provides 
+	// (i.e., the command line input) 
+	// double cacheSize;
+	uint64_t statSize;
+	double v; // declared as global variable in adaptsize_stub.cpp 
+	// for random number generation 
+	std::mt19937_64 randGenerator0; 
+	// for random number generation 
+	// std::uniform_int_distribution<int> uniform_int_distro(0, RANGE);
+	std::uniform_int_distribution<unsigned long long> 
+		uniform_int_distribution0; 
+
+	struct ObjInfo {
+		uint64_t requestCount; // requestRate in adaptsize_stub.h
+		uint64_t objSize;
+
+		ObjInfo() : requestCount(0), objSize(0) { }
+	};
+	std::unordered_map<CacheObject, ObjInfo> lruCacheMapType;
+
+	std::unordered_map<CacheObject, ObjInfo> ewmaInfo;
+	std::unordered_map<CacheObject, ObjInfo> intervalInfo;
+
+	void reconfigure();
+	double modelHitRate(double c);
+
+	// align data for vectorization
+	std::vector<double> alignedReqCount;
+	std::vector<double> alignedObjSize;
+	std::vector<double> alignedAdmProb;
+};
+
+static Factory<AdaptSizeCache> factoryAdaptSize("AdaptSize");
+
+/*
+  S4LRU
+
+  enter at segment 0
+  if hit on segment i, segment i+1
+  if evicted on segment i, segment i-1
+
+*/
+class S4LRUCache : public Cache
+{
+protected:
+    LRUCache segments[4];
+
+public:
+    S4LRUCache()
+        : Cache()
+    {
+        segments[0] = LRUCache();
+        segments[1] = LRUCache();
+        segments[2] = LRUCache();
+        segments[3] = LRUCache();
+    }
+    virtual ~S4LRUCache()
+    {
+    }
+
+    virtual void setSize(uint64_t cs);
+    virtual bool lookup(SimpleRequest* req);
+    virtual void admit(SimpleRequest* req);
+    virtual void segment_admit(uint8_t idx, SimpleRequest* req);
+    virtual void evict(SimpleRequest* req);
+    virtual void evict();
+};
+
+static Factory<S4LRUCache> factoryS4LRU("S4LRU");
+
 
 
 #endif
