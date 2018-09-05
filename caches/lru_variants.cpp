@@ -480,6 +480,11 @@ double AdaptSizeCache::modelHitRate(double log2c) {
   return (weighted_hitratio_sum);
 }
 
+AdaptSizeIOPCache::AdaptSizeIOPCache()
+	: AdaptSizeCache() 
+{
+}
+
 /*
   S4LRU
 */

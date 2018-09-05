@@ -176,6 +176,23 @@ private:
 static Factory<AdaptSizeCache> factoryAdaptSize("AdaptSize");
 
 /*
+ 	AdaptSizeIOPCache: an AdaptSize variant that is aware of individual object 
+	popularity 
+*/ 
+class AdaptSizeIOPCache : public AdaptSizeCache
+{
+public: 
+	AdaptSizeIOPCache();
+	virtual ~AdaptSizeIOPCache()
+	{
+	}
+
+private: 
+};
+
+static Factory<AdaptSizeIOPCache> factoryAdaptSizeIOP("AdaptSizeIOP");
+
+/*
   S4LRU
 
   enter at segment 0
